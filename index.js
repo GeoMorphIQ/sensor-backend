@@ -51,17 +51,29 @@ function addLogEntry(entry) {
     }
 }
 
-// --- Endpoint for the website to get data FROM ---
+// This is your UPDATED code
 app.get('/api/data', (req, res) => {
-  
-  // --- NEW: Check if the device is online ---
-  const isOnline = (Date.now() - lastHeartbeat) < DEVICE_TIMEOUT_MS;
+    
+    // --- ADD THIS LOGIC ---
+    const HEALTH_THRESHOLD = 30;    // Set your health threshold (e.g., 50%)
+    const STRESS_THRESHOLD_MV = 30; // Set your stress threshold (e.g., 200mV)
 
-  res.json({
-    isOnline, // <-- Send this new status to the frontend
-    latestSensorData: isOnline ? latestSensorData : {}, // Send empty data if offline
-    eventLog
-  });
+    // Check if the latest data is below the thresholds
+    if (latestSensorData.health < HEALTH_THRESHOLD || latestSensorData.voltage < STRESS_THRESHOLD_MV) {
+        // If EITHER is too low, set the warning to TRUE
+        latestSensorData.weakBrickWarning = true;
+    } else {
+        // If both are OK, set the warning to FALSE
+        latestSensorData.weakBrickWarning = false;
+    }
+    // --- END OF LOGIC TO ADD ---
+
+    // This line sends the final data (with the correct warning) to your dashboard
+    res.json({
+        isOnline: true, 
+        latestSensorData: latestSensorData, 
+        eventLog: [] // Or your real event log
+    });
 });
 
 app.listen(PORT, () => {
