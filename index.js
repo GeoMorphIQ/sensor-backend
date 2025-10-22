@@ -5,8 +5,12 @@ const PORT = process.env.PORT || 3000;
 
 // --- State Variables ---
 let latestSensorData = {};
-let eventLog = []; // NEW: Array to store event logs
-const MAX_LOG_ENTRIES = 20; // NEW: Limit the number of log entries
+let eventLog = []; 
+const MAX_LOG_ENTRIES = 20;
+
+// --- NEW: Add a variable to track the last time we heard from the ESP32 ---
+let lastHeartbeat = Date.now();
+const DEVICE_TIMEOUT_MS = 10000; // 10 seconds
 
 // Middleware
 app.use(cors());
@@ -17,7 +21,10 @@ app.post('/api/data', (req, res) => {
   const previousData = { ...latestSensorData };
   latestSensorData = req.body;
   
-  // NEW: Logic to check for state changes and add log entries
+  // --- NEW: Update the heartbeat timestamp on every successful POST ---
+  lastHeartbeat = Date.now();
+
+  // Logic to check for state changes and add log entries
   const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
   if (latestSensorData.earthquakeAlert && !previousData.earthquakeAlert) {
@@ -36,7 +43,7 @@ app.post('/api/data', (req, res) => {
   res.status(200).send({ message: 'Data received and processed' });
 });
 
-// NEW: Helper function to manage the log
+// Helper function to manage the log
 function addLogEntry(entry) {
     eventLog.unshift(entry); // Add new entry to the beginning
     if (eventLog.length > MAX_LOG_ENTRIES) {
@@ -46,9 +53,13 @@ function addLogEntry(entry) {
 
 // --- Endpoint for the website to get data FROM ---
 app.get('/api/data', (req, res) => {
-  // MODIFIED: Return both the latest data and the event log
+  
+  // --- NEW: Check if the device is online ---
+  const isOnline = (Date.now() - lastHeartbeat) < DEVICE_TIMEOUT_MS;
+
   res.json({
-    latestSensorData,
+    isOnline, // <-- Send this new status to the frontend
+    latestSensorData: isOnline ? latestSensorData : {}, // Send empty data if offline
     eventLog
   });
 });
